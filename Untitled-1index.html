@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Go / No-Go Kids</title>
+
+<style>
+
+body{
+    margin:0;
+    background:black;
+    color:white;
+    font-family:Arial, sans-serif;
+    overflow:hidden;
+}
+
+#pantalla{
+    width:100vw;
+    height:100vh;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+
+    text-align:center;
+}
+
+#texto{
+    font-size:42px;
+    line-height:1.7;
+    max-width:1200px;
+}
+
+.titulo{
+
+    font-size:72px;
+
+    font-weight:bold;
+
+    margin-bottom:30px;
+
+}
+
+.caja{
+
+    border:3px solid white;
+
+    border-radius:22px;
+
+    padding:50px;
+
+    max-width:1250px;
+
+    background:rgba(255,255,255,0.04);
+
+    font-size:42px;
+
+    line-height:1.8;
+
+}
+
+.amarillo{
+    color:yellow;
+    font-weight:bold;
+}
+
+.verde{
+    color:#7CFF7C;
+    font-weight:bold;
+}
+
+.rojo{
+    color:#FF7777;
+    font-weight:bold;
+}
+
+#cruz{
+
+    font-size:250px;
+
+    font-weight:bold;
+
+}
+
+.contenedor-img{
+
+    width:420px;
+
+    height:420px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+.contenedor-img img{
+
+    width:100%;
+
+    height:100%;
+
+    object-fit:contain;
+
+}
+
+.feedback-bien{
+
+    font-size:58px;
+
+    color:#7CFF7C;
+
+    font-weight:bold;
+
+}
+
+.feedback-mal{
+
+    font-size:58px;
+
+    color:#FF7777;
+
+    font-weight:bold;
+
+}
+
+#globo{
+
+    width:120px;
+
+    height:150px;
+
+    background:#ff4d6d;
+
+    border-radius:50%;
+
+    transition:0.2s;
+
+    margin-bottom:35px;
+
+    box-shadow:
+    0 0 40px rgba(255,77,109,0.5);
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="pantalla">
+
+<div id="texto">
+Cargando...
+</div>
+
+</div>
+
+<script>
+
+const pantalla =
+document.getElementById("pantalla");
+
+let datos = [];
+
+let esperandoRespuesta = false;
+
+let respuestaDada = false;
+
+let inicioEnsayo = 0;
+
+let ensayoActual = null;
+
+const DURACION_IMAGEN = 1000;
+
+const DURACION_FEEDBACK = 700;
+
+const imagenesNecesarias = [
+
+    "conejo.png",
+
+    "oveja.png",
+
+    "perro.png",
+
+    "tigre.png",
+
+    "elefante.png",
+
+    "jirafa.png",
+
+    "leon.png"
+
+];
+
+function esperar(ms){
+
+    return new Promise(
+        resolve => setTimeout(resolve, ms)
+    );
+
+}
+
+function esperarEspacio(){
+
+    return new Promise(resolve => {
+
+        function tecla(e){
+
+            if(e.code === "Space"){
+
+                document.removeEventListener(
+                    "keydown",
+                    tecla
+                );
+
+                resolve();
+
+            }
+
+        }
+
+        document.addEventListener(
+            "keydown",
+            tecla
+        );
+
+    });
+
+}
+
+async function pantallaTexto(
+    titulo,
+    mensaje
+){
+
+    pantalla.innerHTML = `
+
+    <div class="titulo">
+
+    ${titulo}
+
+    </div>
+
+    <div class="caja">
+
+    ${mensaje}
+
+    <br><br>
+
+    <span class="amarillo">
+
+    Presiona la BARRA ESPACIADORA para continuar.
+
+    </span>
+
+    </div>
+
+    `;
+
+    await esperarEspacio();
+
+}
+
+function mostrarCruz(){
+
+    pantalla.innerHTML = `
+
+    <div id="cruz">
+
+    +
+
+    </div>
+
+    `;
+
+}
+
+function mostrarImagen(src){
+
+    pantalla.innerHTML = `
+
+    <div class="contenedor-img">
+
+    <img 
+
+    src="${src}"
+
+    onerror="
+    document.getElementById('pantalla').innerHTML=
+    '<div id=texto>
+
+    ERROR<br><br>
+
+    No encuentro esta imagen:<br><br>
+
+    <b>${src}</b><br><br>
+
+    Revisa que esté en la misma carpeta que index.html.
+
+    </div>'
+    "
+
+    >
+
+    </div>
+
+    `;
+
+}
+
+function mostrarFeedback(correcto){
+
+    if(correcto){
+
+        pantalla.innerHTML = `
+
+        <div class="feedback-bien">
+
+        Muy bien
+
+        </div>
+
+        `;
+
+    }else{
+
+        pantalla.innerHTML = `
+
+        <div class="feedback-mal">
+
+        Inténtalo de nuevo
+
+        </div>
+
+        `;
+
+    }
+
+}
+
+function crearListaMezclada(listaOriginal){
+
+    let lista = [...listaOriginal];
+
+    let mezclada = [];
+
+    while(lista.length > 0){
+
+        let opciones = lista.filter(x => {
+
+            let ultimos = mezclada.slice(-2);
+
+            return !(
+
+                ultimos.length === 2 &&
+
+                ultimos[0] === x &&
+
+                ultimos[1] === x
+
+            );
+
+        });
+
+        if(opciones.length === 0){
+
+            opciones = lista;
+
+        }
+
+        let elegido = opciones[
+            Math.floor(Math.random() * opciones.length)
+        ];
+
+        mezclada.push(elegido);
+
+        lista.splice(
+            lista.indexOf(elegido),
+            1
+        );
+
+    }
+
+    return mezclada;
+
+}
+
+async function verificarImagenes(){
+
+    let faltantes = [];
+
+    for(let img of imagenesNecesarias){
+
+        let existe = await new Promise(resolve => {
+
+            let test = new Image();
+
+            test.onload = () => resolve(true);
+
+            test.onerror = () => resolve(false);
+
+            test.src = img;
+
+        });
+
+        if(!existe){
+
+            faltantes.push(img);
+
+        }
+
+    }
+
+    if(faltantes.length > 0){
+
+        pantalla.innerHTML = `
+
+        <div id="texto">
+
+        ERROR<br><br>
+
+        No encuentro estas imágenes:<br><br>
+
+        <b>${faltantes.join("<br>")}</b>
+
+        <br><br>
+
+        Deben estar en la misma carpeta que index.html.
+
+        </div>
+
+        `;
+
+        return false;
+
+    }
+
+    return true;
+
+}
+
+document.addEventListener(
+
+"keydown",
+
+function(e){
+
+    if(
+
+        e.code === "Space" &&
+
+        esperandoRespuesta &&
+
+        !respuestaDada
+
+    ){
+
+        respuestaDada = true;
+
+        const rt =
+        performance.now() - inicioEnsayo;
+
+        ensayoActual.respuesta = "space";
+
+        ensayoActual.rt =
+        Math.round(rt);
+
+        ensayoActual.correcto =
+
+        ensayoActual.respuesta_correcta
+        === "space";
+
+    }
+
+});
+
+async function ensayo(
+
+    imagen,
+
+    respuestaCorrecta,
+
+    fase,
+
+    bloque,
+
+    feedback=true
+
+){
+
+    respuestaDada = false;
+
+    esperandoRespuesta = true;
+
+    ensayoActual = {
+
+        bloque: bloque,
+
+        fase: fase,
+
+        imagen: imagen,
+
+        respuesta_correcta:
+
+        respuestaCorrecta ||
+        "no_presionar",
+
+        respuesta: "",
+
+        rt: "",
+
+        correcto: false
+
+    };
+
+    mostrarImagen(imagen);
+
+    inicioEnsayo = performance.now();
+
+    await esperar(DURACION_IMAGEN);
+
+    esperandoRespuesta = false;
+
+    if(!respuestaDada){
+
+        ensayoActual.correcto =
+
+        respuestaCorrecta === null;
+
+    }
+
+    datos.push(ensayoActual);
+
+    if(feedback){
+
+        mostrarFeedback(
+            ensayoActual.correcto
+        );
+
+        await esperar(
+            DURACION_FEEDBACK
+        );
+
+    }
+
+    pantalla.innerHTML = "";
+
+    await esperar(300);
+
+}
+
+async function bloqueGo(numeroBloque){
+
+    await pantallaTexto(
+
+    "TAREA GO",
+
+    `
+    Verás imágenes de un
+
+    <span class="verde">
+
+    TIGRE
+
+    </span>
+
+    o un
+
+    <span class="verde">
+
+    ELEFANTE
+
+    </span>
+
+    .<br><br>
+
+    Cada vez que aparezca uno de estos animales,
+    presiona la
+
+    <span class="amarillo">
+
+    BARRA ESPACIADORA
+
+    </span>
+
+    lo más rápido que puedas.
+    `
+
+    );
+
+    let base = [];
+
+    for(let i=0; i<12; i++){
+
+        base.push("tigre.png");
+
+        base.push("elefante.png");
+
+    }
+
+    let trials =
+    crearListaMezclada(base);
+
+    for(let img of trials){
+
+        await ensayo(
+
+            img,
+
+            "space",
+
+            "go_tigre_elefante",
+
+            numeroBloque,
+
+            false
+
+        );
+
+    }
+
+}
+
+async function bloqueGoNoGo(numeroBloque){
+
+    await pantallaTexto(
+
+    "TAREA GO / NO-GO",
+
+    `
+    Verás imágenes de una
+
+    <span class="verde">
+
+    JIRAFA
+
+    </span>
+
+    o un
+
+    <span class="rojo">
+
+    LEÓN
+
+    </span>
+
+    .<br><br>
+
+    Si aparece una
+
+    <span class="verde">
+
+    JIRAFA
+
+    </span>
+
+    ,
+
+    presiona la
+
+    <span class="amarillo">
+
+    BARRA ESPACIADORA
+
+    </span>
+
+    .<br><br>
+
+    Si aparece un
+
+    <span class="rojo">
+
+    LEÓN
+
+    </span>
+
+    ,
+
+    NO presiones nada.
+    `
+
+    );
+
+    let base = [];
+
+    for(let i=0; i<12; i++){
+
+        base.push({
+
+            img:"jirafa.png",
+
+            respuesta:"space"
+
+        });
+
+        base.push({
+
+            img:"leon.png",
+
+            respuesta:null
+
+        });
+
+    }
+
+    let temporal =
+    base.map(x => JSON.stringify(x));
+
+    let mezclada =
+    crearListaMezclada(temporal)
+
+    .map(x => JSON.parse(x));
+
+    for(let t of mezclada){
+
+        await ensayo(
+
+            t.img,
+
+            t.respuesta,
+
+            "go_nogo_jirafa_leon",
+
+            numeroBloque,
+
+            false
+
+        );
+
+    }
+
+}
+
+async function globoRespiracion(){
+
+    pantalla.innerHTML = `
+
+    <div id="globo"></div>
+
+    <div id="texto">
+
+    Vamos a respirar juntos.<br><br>
+
+    Cuando presiones lentamente la
+
+    <span class="amarillo">
+
+    BARRA ESPACIADORA
+
+    </span>
+
+    , inhala despacio para inflar el globo.
+
+    </div>
+
+    `;
+
+    const globo =
+    document.getElementById("globo");
+
+    const texto =
+    document.getElementById("texto");
+
+    let tamaño = 120;
+
+    return new Promise(resolve => {
+
+        function keydown(e){
+
+            if(e.code === "Space"){
+
+                e.preventDefault();
+
+                tamaño += 15;
+
+                if(tamaño > 300){
+
+                    tamaño = 300;
+
+                }
+
+                globo.style.width =
+                tamaño + "px";
+
+                globo.style.height =
+                tamaño * 1.2 + "px";
+
+                texto.innerHTML =
+
+                "Inhala lentamente...<br><br>" +
+
+                "Mientras mantienes presionada la barra,<br>" +
+
+                "el globo se hace más grande.";
+
+                if(tamaño >= 300){
+
+                    texto.innerHTML =
+
+                    "Muy bien.<br><br>" +
+
+                    "Ahora el globo descansará.";
+
+                    setTimeout(()=>{
+
+                        globo.style.transition =
+                        "3s";
+
+                        globo.style.transform =
+                        "translateY(-900px)";
+
+                    },1000);
+
+                    document.removeEventListener(
+                        "keydown",
+                        keydown
+                    );
+
+                    document.removeEventListener(
+                        "keyup",
+                        keyup
+                    );
+
+                    setTimeout(resolve,4000);
+
+                }
+
+            }
+
+        }
+
+        function keyup(e){
+
+            if(e.code === "Space"){
+
+                texto.innerHTML =
+
+                "Exhala lentamente...<br><br>" +
+
+                "Suelta el aire despacio mientras<br>" +
+
+                "dejas de presionar la barra.";
+
+            }
+
+        }
+
+        document.addEventListener(
+            "keydown",
+            keydown
+        );
+
+        document.addEventListener(
+            "keyup",
+            keyup
+        );
+
+    });
+
+}
+
+function descargarCSV(){
+
+    let columnas = [
+
+        "bloque",
+
+        "fase",
+
+        "imagen",
+
+        "respuesta_correcta",
+
+        "respuesta",
+
+        "rt",
+
+        "correcto"
+
+    ];
+
+    let csv =
+    columnas.join(",") + "\n";
+
+    datos.forEach(fila => {
+
+        csv += columnas.map(
+
+            col => fila[col]
+
+        ).join(",") + "\n";
+
+    });
+
+    let blob = new Blob([csv], {
+
+        type:"text/csv;charset=utf-8;"
+
+    });
+
+    let url =
+    URL.createObjectURL(blob);
+
+    let a =
+    document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+    "resultados_gonogo.csv";
+
+    a.click();
+
+}
+
+async function iniciarExperimento(){
+
+    let imagenesOk =
+    await verificarImagenes();
+
+    if(!imagenesOk) return;
+
+    await pantallaTexto(
+
+    "TAREA DE ATENCIÓN",
+
+    `
+    Este juego nos ayudará a conocer cómo prestas atención.<br><br>
+
+    Lee con calma las instrucciones.<br><br>
+
+    Trata de permanecer quieto durante la tarea.
+    `
+
+    );
+
+    await pantallaTexto(
+
+    "CRUZ DE FIJACIÓN",
+
+    `
+    Cuando aparezca una cruz (+)
+    en el centro de la pantalla,
+    mírala con atención.
+    `
+
+    );
+
+    mostrarCruz();
+
+    await esperar(5000);
+
+    await pantallaTexto(
+
+    "PRÁCTICA",
+
+    `
+    Cada vez que aparezca un animal,
+    presiona la
+
+    <span class="amarillo">
+
+    BARRA ESPACIADORA
+
+    </span>
+
+    .
+    `
+
+    );
+
+    for(let i=0; i<5; i++){
+
+        await ensayo(
+
+            "perro.png",
+
+            "space",
+
+            "practica_perritos",
+
+            0,
+
+            true
+
+        );
+
+    }
+
+    for(let i=0; i<3; i++){
+
+        await ensayo(
+
+            "conejo.png",
+
+            "space",
+
+            "practica_conejos",
+
+            0,
+
+            true
+
+        );
+
+    }
+
+    await pantallaTexto(
+
+    "DESCANSO",
+
+    `
+    Ahora descansa un momento.<br><br>
+
+    Cuando aparezca la cruz,
+    mírala en el centro de la pantalla.
+    `
+
+    );
+
+    mostrarCruz();
+
+    await esperar(5000);
+
+    await bloqueGo(1);
+
+    await bloqueGoNoGo(1);
+
+    await pantallaTexto(
+
+    "DESCANSO",
+
+    `
+    Descansa un momento
+    mirando la cruz.
+    `
+
+    );
+
+    mostrarCruz();
+
+    await esperar(5000);
+
+    await bloqueGo(2);
+
+    await bloqueGoNoGo(2);
+
+    await pantallaTexto(
+
+    "DESCANSO",
+
+    `
+    Descansa un momento
+    mirando la cruz.
+    `
+
+    );
+
+    mostrarCruz();
+
+    await esperar(5000);
+
+    await bloqueGo(3);
+
+    await bloqueGoNoGo(3);
+
+    await pantallaTexto(
+
+    "POST-TAREA",
+
+    `
+    Muy bien,
+    terminaste la tarea.<br><br>
+
+    Ahora vamos a relajarnos un momento.
+    `
+
+    );
+
+    await globoRespiracion();
+
+    pantalla.innerHTML = `
+
+    <div id="texto">
+
+    Gracias por participar.<br><br>
+
+    Tus respuestas se descargarán automáticamente.
+
+    </div>
+
+    `;
+
+    await esperar(3000);
+
+    descargarCSV();
+
+}
+
+pantallaTexto(
+
+"BIENVENIDO",
+
+`
+Cuando estés listo,
+comenzaremos la tarea.
+`
+
+).then(iniciarExperimento);
+
+</script>
+
+</body>
+</html>
