@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Go / No-Go Kids</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body{
+    margin:0;
+    background:black;
+    color:white;
+    font-family:Arial, sans-serif;
+    overflow:hidden;
+}
+
+#pantalla{
+    width:100vw;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+    text-align:center;
+}
+
+.titulo{
+    font-size:72px;
+    font-weight:bold;
+    margin-bottom:35px;
+}
+
+.caja{
+    border:4px solid white;
+    border-radius:25px;
+    padding:55px;
+    max-width:1300px;
+    background:rgba(255,255,255,0.03);
+    font-size:42px;
+    line-height:1.9;
+}
+
+.verde{ color:#8DFF57; font-weight:bold; }
+.amarillo{ color:#FFD84D; font-weight:bold; }
+.rojo{ color:#FF7A7A; font-weight:bold; }
+.blanco{ color:white; font-weight:bold; }
+
+#cruz{
+    font-size:240px;
+    font-weight:bold;
+}
+
+.contenedor-img{
+    width:420px;
+    height:420px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.contenedor-img img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+}
+
+#textoError{
+    font-size:40px;
+    max-width:1000px;
+    line-height:1.8;
+}
+</style>
+</head>
+
+<body>
+<div id="pantalla"></div>
+
+<script>
+const pantalla = document.getElementById("pantalla");
+
+const TIEMPO_IMAGEN = 300;
+const TIEMPO_TRANSICION = 700;
+
+let datos = [];
+let esperandoRespuesta = false;
+let respuestaDada = false;
+let inicioEnsayo = 0;
+let ensayoActual = null;
+
+const imagenesNecesarias = [
+    "conejo.png",
+    "perro.png",
+    "tigre.png",
+    "elefante.png",
+    "jirafa.png",
+    "leon.png"
+];
+
+function esperar(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function esperarEnter(){
+    return new Promise(resolve => {
+        function tecla(e){
+            if(e.code === "Enter"){
+                document.removeEventListener("keydown", tecla);
+                resolve();
+            }
+        }
+        document.addEventListener("keydown", tecla);
+    });
+}
+
+async function pantallaTexto(titulo, mensaje){
+    pantalla.innerHTML = `
+        <div class="titulo">${titulo}</div>
+        <div class="caja">${mensaje}</div>
+    `;
+    await esperarEnter();
+}
+
+function mostrarCruz(){
+    pantalla.innerHTML = `<div id="cruz">+</div>`;
+}
+
+function pantallaNegra(){
+    pantalla.innerHTML = "";
+}
+
+function mostrarImagen(src){
+    pantalla.innerHTML = `
+        <div class="contenedor-img">
+            <img src="${src}"
+            onerror="
+            document.getElementById('pantalla').innerHTML=
+            '<div id=textoError>ERROR<br><br>No encuentro la imagen:<br><br><b>${src}</b></div>'
+            ">
+        </div>
+    `;
+}
+
+async function verificarImagenes(){
+    let faltantes = [];
+
+    for(let img of imagenesNecesarias){
+        let existe = await new Promise(resolve => {
+            let test = new Image();
+            test.onload = () => resolve(true);
+            test.onerror = () => resolve(false);
+            test.src = img;
+        });
+
+        if(!existe){
+            faltantes.push(img);
+        }
+    }
+
+    if(faltantes.length > 0){
+        pantalla.innerHTML = `
+        <div id="textoError">
+        ERROR<br><br>
+        No encuentro estas imágenes:<br><br>
+        <b>${faltantes.join("<br>")}</b>
+        <br><br>
+        Todas deben estar en la misma carpeta que index.html.
+        </div>
+        `;
+        return false;
+    }
+
+    return true;
+}
+
+document.addEventListener("keydown", function(e){
+    if(e.code === "Space" && esperandoRespuesta && !respuestaDada){
+        respuestaDada = true;
+
+        const rt = performance.now() - inicioEnsayo;
+
+        ensayoActual.respuesta = "space";
+        ensayoActual.rt = Math.round(rt);
+        ensayoActual.correcto = ensayoActual.respuesta_correcta === "space";
+    }
+});
+
+function mezclar(array){
+    let copia = [...array];
+
+    for(let i = copia.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [copia[i], copia[j]] = [copia[j], copia[i]];
+    }
+
+    return copia;
+}
+
+function crearSecuenciaSinPatron(listaOriginal){
+    let lista = [...listaOriginal];
+    let resultado = [];
+
+    while(lista.length > 0){
+        let opciones = lista.filter(item => {
+            let ultimos = resultado.slice(-2);
+
+            return !(
+                ultimos.length === 2 &&
+                ultimos[0].img === item.img &&
+                ultimos[1].img === item.img
+            );
+        });
+
+        if(opciones.length === 0){
+            opciones = lista;
+        }
+
+        let elegido = opciones[Math.floor(Math.random() * opciones.length)];
+        resultado.push(elegido);
+        lista.splice(lista.indexOf(elegido), 1);
+    }
+
+    return resultado;
+}
+
+async function ensayo(imagen, respuestaCorrecta, fase, bloque, feedback=false){
+    respuestaDada = false;
+    esperandoRespuesta = true;
+
+    ensayoActual = {
+        bloque: bloque,
+        fase: fase,
+        imagen: imagen,
+        respuesta_correcta: respuestaCorrecta || "no_presionar",
+        respuesta: "",
+        rt: "",
+        correcto: false
+    };
+
+    mostrarImagen(imagen);
+    inicioEnsayo = performance.now();
+
+    await esperar(TIEMPO_IMAGEN);
+
+    esperandoRespuesta = false;
+
+    if(!respuestaDada){
+        ensayoActual.correcto = respuestaCorrecta === null;
+    }
+
+    datos.push(ensayoActual);
+
+    if(feedback){
+        if(ensayoActual.correcto){
+            pantalla.innerHTML = `<div class="verde" style="font-size:70px;">Muy bien</div>`;
+        }else{
+            pantalla.innerHTML = `<div class="rojo" style="font-size:70px;">Inténtalo de nuevo</div>`;
+        }
+
+        await esperar(TIEMPO_TRANSICION);
+    }else{
+        pantallaNegra();
+        await esperar(TIEMPO_TRANSICION);
+    }
+}
+
+async function bloqueGo(numeroBloque){
+    await pantallaTexto(
+        "TAREA GO",
+        `
+        Ahora verás imágenes de un
+        <span class="blanco">TIGRE</span>
+        y un
+        <span class="blanco">ELEFANTE</span>.
+        <br><br>
+
+        <span class="verde">Presiona la BARRA ESPACIADORA</span>
+        cada vez que aparezca una de estas imágenes.
+        <br><br>
+
+        <span class="amarillo">Presiona ENTER para continuar.</span>
+        `
+    );
+
+    let base = [];
+
+    for(let i=0; i<12; i++){
+        base.push({ img:"tigre.png", respuesta:"space" });
+        base.push({ img:"elefante.png", respuesta:"space" });
+    }
+
+    let secuencia = crearSecuenciaSinPatron(base);
+
+    for(let item of secuencia){
+        await ensayo(item.img, item.respuesta, "go", numeroBloque, false);
+    }
+}
+
+async function bloqueGoNoGo(numeroBloque){
+    await pantallaTexto(
+        "TAREA GO / NO-GO",
+        `
+        Ahora verás imágenes de una
+        <span class="blanco">JIRAFA</span>
+        y un
+        <span class="blanco">LEÓN</span>.
+        <br><br>
+
+        <span class="verde">Presiona la BARRA ESPACIADORA</span>
+        cuando aparezca la
+        <span class="verde">JIRAFA</span>.
+        <br><br>
+
+        <span class="rojo">Si aparece el LEÓN, NO presiones nada.</span>
+        <br><br>
+
+        <span class="amarillo">Presiona ENTER para continuar.</span>
+        `
+    );
+
+    let base = [];
+
+    for(let i=0; i<17; i++){
+        base.push({ img:"jirafa.png", respuesta:"space" });
+    }
+
+    for(let i=0; i<7; i++){
+        base.push({ img:"leon.png", respuesta:null });
+    }
+
+    let secuencia = crearSecuenciaSinPatron(mezclar(base));
+
+    for(let item of secuencia){
+        await ensayo(item.img, item.respuesta, "go_nogo", numeroBloque, false);
+    }
+}
+
+function calcularResumen(){
+    let total = datos.length;
+    let correctos = datos.filter(d => d.correcto).length;
+
+    let erroresComision = datos.filter(d =>
+        d.respuesta_correcta === "no_presionar" &&
+        d.respuesta === "space"
+    ).length;
+
+    let erroresOmision = datos.filter(d =>
+        d.respuesta_correcta === "space" &&
+        d.respuesta === ""
+    ).length;
+
+    let rts = datos
+        .filter(d => d.rt !== "" && d.correcto)
+        .map(d => Number(d.rt));
+
+    let rtPromedio = rts.length > 0
+        ? Math.round(rts.reduce((a,b) => a + b, 0) / rts.length)
+        : "";
+
+    let accuracy = total > 0
+        ? Math.round((correctos / total) * 100)
+        : 0;
+
+    return {
+        total,
+        correctos,
+        accuracy,
+        erroresComision,
+        erroresOmision,
+        rtPromedio
+    };
+}
+
+function descargarExcel(){
+    let datosTabla = datos.map(d => ({
+        bloque: d.bloque,
+        fase: d.fase,
+        imagen: d.imagen,
+        respuesta_correcta: d.respuesta_correcta,
+        respuesta: d.respuesta,
+        rt: d.rt,
+        correcto: d.correcto
+    }));
+
+    let resumen = calcularResumen();
+
+    let resumenTabla = [
+        {
+            total_ensayos: resumen.total,
+            correctos: resumen.correctos,
+            accuracy: resumen.accuracy,
+            errores_comision: resumen.erroresComision,
+            errores_omision: resumen.erroresOmision,
+            rt_promedio: resumen.rtPromedio
+        }
+    ];
+
+    let wb = XLSX.utils.book_new();
+
+    let ws1 = XLSX.utils.json_to_sheet(datosTabla);
+    let ws2 = XLSX.utils.json_to_sheet(resumenTabla);
+
+    XLSX.utils.book_append_sheet(wb, ws1, "Ensayos");
+    XLSX.utils.book_append_sheet(wb, ws2, "Resumen");
+
+    XLSX.writeFile(wb, "resultados_gonogo.xlsx");
+}
+
+async function iniciarExperimento(){
+    const ok = await verificarImagenes();
+    if(!ok) return;
+
+    await pantallaTexto(
+        "INICIO",
+        `
+        Cuando estés listo comenzaremos la tarea.
+        <br><br>
+        <span class="amarillo">Presiona ENTER para continuar.</span>
+        `
+    );
+
+    await pantallaTexto(
+        "INSTRUCCIONES INICIALES",
+        `
+        Este juego nos ayudará a conocer cómo prestas atención.
+        <br><br>
+        Lee las instrucciones.
+        <br><br>
+        Trata de permanecer quieto durante la tarea.
+        <br><br>
+        <span class="amarillo">Presiona ENTER para continuar.</span>
+        `
+    );
+
+    await pantallaTexto(
+        "CRUZ DE FIJACIÓN",
+        `
+        Cuando aparezca una cruz (+) en el centro de la pantalla,
+        mírala con atención.
+        <br><br>
+        <span class="amarillo">Presiona ENTER para continuar.</span>
+        `
+    );
+
+    mostrarCruz();
+    await esperar(5000);
+
+    await pantallaTexto(
+        "PRÁCTICA GO",
+        `
+        Cada vez que aparezca la imagen de un animal,
+        <br><br>
+        <span class="verde">presiona la BARRA ESPACIADORA.</span>
+        <br><br>
+        <span class="amarillo">Presiona ENTER para continuar.</span>
+        `
+    );
+
+    for(let i=0; i<5; i++){
+        await ensayo("perro.png", "space", "practica_perro", 0, true);
+    }
+
+    for(let i=0; i<5; i++){
+        await ensayo("conejo.png", "space", "practica_conejo", 0, true);
+    }
+
+    mostrarCruz();
+    await esperar(5000);
+
+    await bloqueGo(1);
+    await bloqueGoNoGo(1);
+
+    mostrarCruz();
+    await esperar(5000);
+
+    await bloqueGo(2);
+    await bloqueGoNoGo(2);
+
+    mostrarCruz();
+    await esperar(5000);
+
+    await bloqueGo(3);
+    await bloqueGoNoGo(3);
+
+    mostrarCruz();
+    await esperar(5000);
+
+    pantalla.innerHTML = `
+        <div class="titulo">GRACIAS</div>
+        <div class="caja">
+            <span class="amarillo">Buen trabajo.</span>
+            <br><br>
+            Gracias por participar.
+        </div>
+    `;
+
+    descargarExcel();
+}
+
+iniciarExperimento();
+</script>
+
+</body>
+</html>
